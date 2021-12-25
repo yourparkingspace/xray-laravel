@@ -29,6 +29,6 @@ class APISegmentSubmitter implements SegmentSubmitter
             'TraceSegmentDocuments' => [
                 json_encode($segment->jsonSerialize()),
             ],
-        ])]);
+        ]);
     }
 }
