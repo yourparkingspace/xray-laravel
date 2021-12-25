@@ -4,9 +4,14 @@ declare(strict_types=1);
 
 namespace Napp\Xray;
 
-use Napp\Xray\Collectors\SegmentCollector;
-use Pkerrigan\Xray\Segment;
 use Pkerrigan\Xray\Trace;
+use GuzzleHttp\Middleware;
+use Pkerrigan\Xray\Segment;
+use GuzzleHttp\HandlerStack;
+use Pkerrigan\Xray\HttpSegment;
+use GuzzleHttp\Handler\CurlHandler;
+use Psr\Http\Message\RequestInterface;
+use Napp\Xray\Collectors\SegmentCollector;
 use Symfony\Component\HttpFoundation\Request;
 
 class Xray
@@ -81,5 +86,42 @@ class Xray
     public function submitCliTracer(): void
     {
         $this->collector->submitCliTracer();
+    }
+
+    public function guzzleHandlerStack(): HandlerStack
+    {
+        $handler = new CurlHandler();
+        $stack = HandlerStack::create($handler);
+
+        $stack->push(Middleware::mapRequest(function (RequestInterface $request) {
+
+            $segmentName = $request->getMethod() . ': ' . $request->getUri()->getPath();
+
+            $segment = (new HttpSegment())->setName($segmentName);
+            $segment->setUrl('https://kiosk-heartbeat.services.pre-prod.yourparkingspace.co.uk/kiosks/EVK-OFFLINEPOST/status');
+            $segment->setMethod($request->getMethod());
+            $this->addCustomSegment($segment, $segmentName);
+
+            return $request;
+        }));
+
+        $stack->push(function (callable $handler) {
+            return function (
+                RequestInterface $request,
+                array $options
+            ) use ($handler) {
+                $response = $handler($request, $options);
+
+                $segmentName = $request->getMethod() . ': ' . $request->getUri()->getPath();
+
+                $segment = $this->getSegment($segmentName);
+                $segment->setResponseCode($response->wait()->getStatusCode());
+                $segment->end();
+
+                return $response;
+            };
+        });
+
+        return $stack;
     }
 }
