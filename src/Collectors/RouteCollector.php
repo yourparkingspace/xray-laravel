@@ -11,9 +11,11 @@ class RouteCollector extends EventsCollector
 {
     public function registerEventListeners(): void
     {
-        $this->app->booted(function () {
-            $this->addSegment('route matching');
-        });
+        if ($this->app instanceof \Illuminate\Foundation\Application) {
+            $this->app->booted(function () {
+                $this->registerRouteMatchingEvent();
+            });
+        }
 
         // Time between route resolution and request handled
         $this->app['events']->listen(RouteMatched::class, function ($event) {
@@ -30,6 +32,11 @@ class RouteCollector extends EventsCollector
                 $this->endSegment('request handled');
             }
         });
+    }
+
+    public function registerRouteMatchingEvent(): void
+    {
+        $this->addSegment('route matching');
     }
 
     protected function getController(): ?string

@@ -62,12 +62,14 @@ class XrayServiceProvider extends ServiceProvider
             app(ViewCollector::class);
         }
 
-        if (config('xray.route')) {
+        if (config('xray.route') && $this->isLaravel()) {
             app(RouteCollector::class);
         }
 
         if (config('xray.framework')) {
-            app(FrameworkCollector::class);
+            $this->app->singleton(FrameworkCollector::class, function ($app) {
+                return new FrameworkCollector();
+            });
         }
     }
 
@@ -79,5 +81,10 @@ class XrayServiceProvider extends ServiceProvider
         $this->app->singleton('xray', function ($app) {
             return $app->make(Xray::class);
         });
+    }
+
+    protected function isLaravel(): bool
+    {
+        return $this->app instanceof \Illuminate\Foundation\Application;
     }
 }
